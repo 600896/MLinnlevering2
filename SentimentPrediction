@@ -52,13 +52,18 @@ predict_market_sentiment(article_url)
 
 !pip install gradio
 
-#gradio interface hvor man kan legge inn vedlegg
 import gradio as gr
 
-def count_files(message, history):
-    num_files = len(message["files"])
-    return f"You uploaded {num_files} files"
+def gradio_predict_sentiment(message, history):
+    url = message["text"]
+    prediction, certainty, scores = predict_market_sentiment(url)
+    return f"{prediction}\n{certainty}\n{scores}"
 
-demo = gr.ChatInterface(fn=count_files, type="messages", examples=[{"text": "Hello", "files": []}], title="Echo Bot", multimodal=True)
+# Gradio setup
+demo = gr.Interface(fn=gradio_predict_sentiment, 
+                    inputs=gr.Textbox(label="Enter Article URL"),
+                    outputs="text",
+                    title="Market Sentiment Predictor")
 
+# Launch the Gradio interface
 demo.launch()
