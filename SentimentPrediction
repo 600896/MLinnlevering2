@@ -10,10 +10,22 @@ for dirname, _, filenames in os.walk('/kaggle/input'):
 
 import pandas as pd
 
-#
-historical_data = pd.read_csv('sudalairajkumar_cryptocurrencypricehistory_path/coin_Bitcoin.csv')
+# Use the variable sudalairajkumar_cryptocurrencypricehistory_path to construct the file path
+
+historical_data = pd.read_csv(os.path.join(sudalairajkumar_cryptocurrencypricehistory_path, 'coin_Bitcoin.csv'))
+!pip install newspaper3k
+
+ #Configure NLTK data path and download VADER lexicon
+nltk.data.path.append("./")  # Append current directory to nltk data path
+try:
+    nltk.data.find("sentiment/vader_lexicon.zip")
+except LookupError:
+    nltk.download('vader_lexicon', download_dir='./')
+
 
 from transformers import pipeline
+from newspaper import Article
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 def analyze_sentiment(text):
     sid = SentimentIntensityAnalyzer()
@@ -38,14 +50,20 @@ def map_to_market_sentiment(sentiment_label):
     else:
         return 'Neutral'
 
-ef predict_market_sentiment(url):
+def get_article_text(url):
+    article = Article(url)
+    article.download()
+    article.parse()
+    return article.text
+
+def predict_market_sentiment(url):
     article_text = get_article_text(url)
     sentiment, scores = analyze_sentiment(article_text)
     certainty_percentage = abs(scores['compound']) * 100  # Convert to percentage
 
-    print(f"Predicted Market Sentiment: {sentiment}")
-    print(f"Certainty of Prediction: {certainty_percentage:.2f}%")
-    print(f"Sentiment Scores: {scores}")
+    # Return values instead of print for Gradio
+    return f"Predicted Market Sentiment: {sentiment}", f"Certainty of Prediction: {certainty_percentage:.2f}%", f"Sentiment Scores: {scores}"
+
 
 article_url = 'https://www.coindesk.com/markets/2024/10/29/bitcoin-surges-above-71k-as-wild-crypto-market-pump-sees-175m-in-shorts-liquidated/'
 predict_market_sentiment(article_url)
@@ -53,17 +71,18 @@ predict_market_sentiment(article_url)
 !pip install gradio
 
 import gradio as gr
-
-def gradio_predict_sentiment(message, history):
-    url = message["text"]
+# Gradio function to handle URL input and call prediction function
+def gradio_predict_sentiment(url):
     prediction, certainty, scores = predict_market_sentiment(url)
     return f"{prediction}\n{certainty}\n{scores}"
 
-# Gradio setup
-demo = gr.Interface(fn=gradio_predict_sentiment, 
-                    inputs=gr.Textbox(label="Enter Article URL"),
-                    outputs="text",
-                    title="Market Sentiment Predictor")
+# Gradio Interface setup
+demo = gr.Interface(
+    fn=gradio_predict_sentiment, 
+    inputs=gr.Textbox(label="Enter Article URL"),
+    outputs="text",
+    title="Market Sentiment Predictor"
+)
 
 # Launch the Gradio interface
 demo.launch()
